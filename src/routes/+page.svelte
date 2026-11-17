@@ -42,7 +42,7 @@
     }),
   );
 
-  const canGenerate = $derived(cost !== null);
+  const canGenerate = $derived(cost !== null && !!settings.apiKey);
 
 
   onMount(() => {
@@ -222,7 +222,11 @@
     {#snippet footer()}
       <button class="btn btn-primary w-full" disabled={generating || !canGenerate} onclick={generateImage}>
         {#if generating}<span class="loading loading-spinner loading-sm"></span>{/if}
-        Generate · {cost === null ? 'Too large' : cost === 0 ? 'Free' : `${cost} Anlas`}
+        {#if !settings.apiKey}
+          No API key set
+        {:else}
+          Generate · {cost === null ? 'Too large' : cost === 0 ? 'Free' : `${cost} Anlas`}
+        {/if}
       </button>
     {/snippet}
   </BaseSidebar>
@@ -254,7 +258,7 @@
           {/each}
         </div>
       {:else}
-        <p class="grid h-full place-items-center opacity-50">Your image will show up here</p>
+        <p class="grid h-full place-items-center opacity-50">No generations yet!</p>
       {/if}
 
       {#if scrolledAway}
@@ -290,5 +294,3 @@
 </div>
 
 <PromptPreview bind:open={previewOpen} />
-
-

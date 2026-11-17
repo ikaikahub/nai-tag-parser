@@ -2,6 +2,7 @@
   import '../app.css';
   import { asset } from '$app/paths';
   import BottomSheet from '$lib/components/BottomSheet.svelte';
+  import PromptText from '$lib/components/PromptText.svelte';
   import ToggleButton from '$lib/components/ToggleButton.svelte';
   import { exportBackup, importBackup } from '$lib/backup.svelte';
   import { account, refreshAccount } from '$lib/state/account.svelte';
@@ -11,6 +12,46 @@
   let { children } = $props();
 
   let settingsOpen = $state(false);
+  let helpOpen = $state(false);
+
+  const PROMPT_EXAMPLE = `tags placed anywhere are included in the base prompt
+/c denotes a character
+
+/u denotes base undesired content
+
+more base tags
+
+/u more undesired content
+
+/c character #2
+/u undesired content for that character
+
+// text after this until the next blank new line will be disabled
+/c disabled character /u their undesired content
+
+/c character #3 /u undesired content
+/c character #4 /c character #5`;
+
+  const KEYBINDS: readonly (readonly [keys: string[], action: string])[] = [
+    [['Enter'], 'Generate (new line on mobile)'],
+    [['Shift', 'Enter'], 'New line in the prompt'],
+    [['↑', '↓', '←', '→'], 'Previous / next generation'],
+    [['Ctrl', 'Scroll'], 'Zoom an image'],
+    [['Esc'], 'Close a panel'],
+  ];
+
+  // without a key nothing can generate, so a visit starts by asking for one
+  let keyPromptOpen = $state(!settings.apiKey);
+  let keyInput = $state('');
+
+  function saveKey(e: SubmitEvent) {
+    e.preventDefault();
+    const key = keyInput.trim();
+    if (!key) return;
+    settings.apiKey = key;
+    keyPromptOpen = false;
+    refreshAccount();
+  }
   let backupMessage = $state('');
   let importInput = $state<HTMLInputElement>();
 
@@ -36,9 +77,10 @@
 
 <div class="flex h-dvh flex-col">
   <header class="flex h-10 shrink-0 items-center gap-4 border-b border-base-300 bg-base-200 px-3 md:h-12">
-    <span class="flex items-center gap-2 text-sm font-semibold">
+    <div class="flex items-center gap-2 text-sm font-semibold">
       <img src={asset('/favicon.png')} alt="" class="size-6" />Bocchi Tagger
-    </span>
+      <button class="btn btn-ghost btn-sm btn-square" title="Help" onclick={() => (helpOpen = true)}>❓</button>
+    </div>
     {#if account.usage}
       <div class="ml-auto flex gap-4 text-sm max-md:hidden">
         <span title="Opus generations left">{account.usage.opus_percentage}%</span>
@@ -61,6 +103,39 @@
     {@render children()}
   </main>
 </div>
+
+<BottomSheet bind:open={keyPromptOpen} title="🔑 Add your NovelAI API key">
+  <form method="dialog"><button class="btn btn-ghost btn-sm btn-square absolute top-2 right-2" title="Close">✕</button></form>
+  <form class="flex flex-col gap-3" onsubmit={saveKey}>
+    <p class="text-sm opacity-80">
+      A NovelAI API key is required to use Bocchi Tagger. The key is stored locally and Bocchi Tagger works completely on your browser.
+    </p>
+    <input class="input w-full font-mono" name="apiKey" autocomplete="off" placeholder="pst-..." bind:value={keyInput} />
+    <p class="text-xs opacity-60">NovelAI → Account Settings → Get Persistent API Token</p>
+    <button class="btn btn-primary" disabled={!keyInput.trim()}>Save</button>
+  </form>
+</BottomSheet>
+
+<BottomSheet bind:open={helpOpen} title="How to use Bocchi Tagger">
+  <div class="flex flex-col gap-3">
+    <h4 class="font-semibold">Prompt syntax</h4>
+    <div class="rounded-box bg-base-200 p-3 text-sm leading-6 break-words whitespace-pre-wrap">
+      <PromptText text={PROMPT_EXAMPLE} />
+    </div>
+
+    <h4 class="mt-2 font-semibold">Keybinds</h4>
+    <ul class="flex flex-col gap-2 text-sm">
+      {#each KEYBINDS as [keys, action] (action)}
+        <li class="flex items-center justify-between gap-3">
+          <span class="flex gap-1">
+            {#each keys as key (key)}<kbd class="kbd kbd-sm">{key}</kbd>{/each}
+          </span>
+          <span class="text-right opacity-80">{action}</span>
+        </li>
+      {/each}
+    </ul>
+  </div>
+</BottomSheet>
 
 <BottomSheet bind:open={settingsOpen} title="Settings">
   <div class="flex flex-col gap-4">
