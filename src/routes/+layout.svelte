@@ -1,7 +1,7 @@
 <script lang="ts">
   import '../app.css';
   import { asset } from '$app/paths';
-  import BottomSheet from '$lib/components/BottomSheet.svelte';
+  import Modal from '$lib/components/Modal.svelte';
   import PromptText from '$lib/components/PromptText.svelte';
   import ToggleButton from '$lib/components/ToggleButton.svelte';
   import { exportBackup, importBackup } from '$lib/backup.svelte';
@@ -56,6 +56,14 @@ more base tags
   let importInput = $state<HTMLInputElement>();
 
   onMount(refreshAccount);
+
+  // the app has started, so the plain HTML loading screen from app.html can fade away
+  onMount(() => {
+    const splash = document.getElementById('splash');
+    if (!splash) return;
+    splash.classList.add('leaving');
+    setTimeout(() => splash.remove(), 300);
+  });
 
   // a new version replaces the old service worker right away, so reload once onto its files.
   // the very first install also takes control of an uncontrolled page, which is not an update and needs no reload
@@ -128,8 +136,7 @@ more base tags
   </main>
 </div>
 
-<BottomSheet bind:open={keyPromptOpen} title="🔑 Add your NovelAI API key">
-  <form method="dialog"><button class="btn btn-ghost btn-sm btn-square absolute top-2 right-2" title="Close">✕</button></form>
+<Modal bind:open={keyPromptOpen} title="🔑 Add your NovelAI API key">
   <form class="flex flex-col gap-3" onsubmit={saveKey}>
     <p class="text-sm opacity-80">
       A NovelAI API key is required to use Bocchi Tagger. The key is stored locally and Bocchi Tagger works completely on your browser.
@@ -138,9 +145,9 @@ more base tags
     <p class="text-xs opacity-60">NovelAI → Account Settings → Get Persistent API Token</p>
     <button class="btn btn-primary" disabled={!keyInput.trim()}>Save</button>
   </form>
-</BottomSheet>
+</Modal>
 
-<BottomSheet bind:open={helpOpen} title="How to use Bocchi Tagger">
+<Modal bind:open={helpOpen} title="How to use Bocchi Tagger">
   <div class="flex flex-col gap-3">
     <h4 class="font-semibold">Prompt syntax</h4>
     <div class="rounded-box bg-base-200 p-3 text-sm leading-6 break-words whitespace-pre-wrap">
@@ -159,9 +166,9 @@ more base tags
       {/each}
     </ul>
   </div>
-</BottomSheet>
+</Modal>
 
-<BottomSheet bind:open={settingsOpen} title="Settings">
+<Modal bind:open={settingsOpen} title="Settings">
   <div class="flex flex-col gap-4">
     <label class="flex flex-col gap-1">
       <span class="text-sm">🔑 API key</span>
@@ -208,4 +215,4 @@ more base tags
       {#if backupMessage}<span class="text-xs">{backupMessage}</span>{/if}
     </div>
   </div>
-</BottomSheet>
+</Modal>

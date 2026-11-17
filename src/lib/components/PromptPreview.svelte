@@ -1,5 +1,5 @@
 <script lang="ts">
-  import BottomSheet from './BottomSheet.svelte';
+  import Modal from './Modal.svelte';
   import { buildGeneration, recordTexts } from '$lib/generation';
 
   let { open = $bindable() }: { open: boolean } = $props();
@@ -21,7 +21,7 @@
   </div>
 {/snippet}
 
-<BottomSheet bind:open title="Prompt that will be sent">
+<Modal bind:open title="Prompt that will be sent">
   {#if preview?.error}
     <p class="text-sm text-error">⚠️ {preview.error}</p>
   {:else if preview}
@@ -31,4 +31,4 @@
       {/each}
     </div>
   {/if}
-</BottomSheet>
+</Modal>

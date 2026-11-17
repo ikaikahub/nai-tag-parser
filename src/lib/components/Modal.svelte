@@ -27,11 +27,14 @@
   });
 </script>
 
-<dialog bind:this={dialog} class="modal modal-bottom sm:modal-middle" onclose={() => (open = false)}>
-  <div class="modal-box mb-(--keyboard-inset,0px) pb-[calc(1.5rem+env(safe-area-inset-bottom))] transition-[margin]">
-    <div class="mx-auto -mt-2 mb-3 h-1 w-10 rounded-full bg-base-300 sm:hidden"></div>
-    <h3 class="mb-4 text-lg font-bold">{title}</h3>
+<!-- close and backdrop set open themselves, the close event is only relied on for Escape -->
+<dialog bind:this={dialog} class="modal" onclose={() => (open = false)}>
+  <div class="modal-box mb-(--keyboard-inset,0px) max-h-[calc(100dvh-2rem)] transition-[margin]">
+    <div class="mb-4 flex items-start justify-between gap-2">
+      <h3 class="text-lg font-bold">{title}</h3>
+      <button class="btn btn-ghost btn-sm btn-square -mt-1 -mr-2" title="Close" onclick={() => (open = false)}>✕</button>
+    </div>
     {@render children()}
   </div>
-  <form method="dialog" class="modal-backdrop"><button>close</button></form>
+  <button class="modal-backdrop" aria-label="Close" onclick={() => (open = false)}></button>
 </dialog>
