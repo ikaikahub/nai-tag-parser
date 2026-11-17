@@ -1,0 +1,130 @@
+@import "tailwindcss";
+
+@plugin "daisyui" {
+  themes: false;
+}
+
+@plugin "daisyui/theme" {
+  name: "dracula";
+  default: true;
+  prefersdark: true;
+  color-scheme: "dark";
+  --color-base-100: #13152c;      /* page background (deep navy) */
+  --color-base-200: #0e0f21;      /* darker panels: sidebar, inputs, lists */
+  --color-base-300: #22253f;      /* raised bits + borders */
+  --color-base-content: #f2f2f7;  /* main text */
+  --color-primary: #f5f3c2;       /* pale yellow: Generate button, active things */
+  --color-primary-content: #13152c;
+  --color-secondary: #22253f;     /* navy buttons like the "+" */
+  --color-secondary-content: #ffffff;
+  --color-accent: #f5f3c2;
+  --color-accent-content: #13152c;
+  --color-neutral: #1a1c33;
+  --color-neutral-content: #cfd0da;
+  --color-info: #7eb6ff;
+  --color-info-content: #13152c;
+  --color-success: #8ce99a;
+  --color-success-content: #13152c;
+  --color-warning: #f5d36b;
+  --color-warning-content: #13152c;
+  --color-error: #ff7b7b;
+  --color-error-content: #13152c;
+  --radius-selector: 0.25rem;
+  --radius-field: 0.25rem;
+  --radius-box: 0rem;
+  --size-selector: 0.25rem;
+  --size-field: 0.25rem;
+  --border: 0.5px;
+  --depth: 0;
+  --noise: 1;
+}
+
+
+@plugin "daisyui/theme" {
+  name: "bumblebee";
+  default: true;
+  prefersdark: false;
+  color-scheme: "light";
+  --color-base-100: oklch(100% 0 0);
+  --color-base-200: oklch(97% 0 0);
+  --color-base-300: oklch(92% 0 0);
+  --color-base-content: oklch(20% 0 0);
+  --color-primary: oklch(85% 0.199 91.936);
+  --color-primary-content: oklch(42% 0.095 57.708);
+  --color-secondary: oklch(75% 0.183 55.934);
+  --color-secondary-content: oklch(40% 0.123 38.172);
+  --color-accent: oklch(0% 0 0);
+  --color-accent-content: oklch(100% 0 0);
+  --color-neutral: oklch(37% 0.01 67.558);
+  --color-neutral-content: oklch(92% 0.003 48.717);
+  --color-info: oklch(74% 0.16 232.661);
+  --color-info-content: oklch(39% 0.09 240.876);
+  --color-success: oklch(76% 0.177 163.223);
+  --color-success-content: oklch(37% 0.077 168.94);
+  --color-warning: oklch(82% 0.189 84.429);
+  --color-warning-content: oklch(41% 0.112 45.904);
+  --color-error: oklch(70% 0.191 22.216);
+  --color-error-content: oklch(39% 0.141 25.723);
+  --radius-selector: 0.25rem;
+  --radius-field: 0.25rem;
+  --radius-box: 0rem;
+  --size-selector: 0.25rem;
+  --size-field: 0.25rem;
+  --border: 0.5px;
+  --depth: 0;
+  --noise: 1;
+}
+
+
+
+/* make it feel like an app, not a web page */
+@layer base {
+  html {
+    overscroll-behavior: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  /* no text selection or long-press popups on app chrome */
+  button, a, nav, header, img, .menu, .tabs {
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+  }
+}
+
+/* quick crossfade between pages (see onNavigate in +layout.svelte) */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 150ms;
+}
+
+/* only UI that animates on open/close/press, not loading loops; keep in sync with ANIMATION_MS in theme.ts */
+:is(.btn, .dropdown, .menu li > *, .modal, .modal-box, .toggle, .checkbox, .radio, .select, .tab, .collapse, .dock > *, .fab, .toast, .tooltip, .swap),
+:is(.modal, .toggle, .checkbox, .radio, .tooltip)::before,
+:is(.modal, .toggle, .checkbox, .radio, .tooltip)::after,
+::backdrop {
+  transition-duration: 75ms !important;
+  animation-duration: 75ms !important;
+}
+
+/* horizontal scroller whose ends fade out only when there's more to scroll that way */
+@property --fade-start { syntax: '<length>'; inherits: false; initial-value: 0px; }
+@property --fade-end { syntax: '<length>'; inherits: false; initial-value: 0px; }
+@keyframes scroll-fade-x {
+  from { --fade-start: 0px; --fade-end: 1.5rem; }
+  10% { --fade-start: 1.5rem; }
+  90% { --fade-end: 1.5rem; }
+  to { --fade-start: 1.5rem; --fade-end: 0px; }
+}
+.scroll-fade-x {
+  overflow-x: auto;
+  scrollbar-width: none;
+  mask-image: linear-gradient(to right, transparent, #000 var(--fade-start), #000 calc(100% - var(--fade-end)), transparent);
+  animation: scroll-fade-x linear both;
+  animation-timeline: scroll(self inline);
+}
+
+:is(.input, .textarea, .select):is(:focus, :focus-within) {
+  --input-color: color-mix(in oklab, var(--color-base-content) 50%, #0000);
+  outline: 1px solid var(--input-color);
+  outline-offset: -1px;
+}
