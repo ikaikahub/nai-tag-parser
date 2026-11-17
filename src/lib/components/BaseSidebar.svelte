@@ -30,11 +30,11 @@
     if (resizing) settings.sidebarWidth = Math.min(Math.max(resizing.width + e.clientX - resizing.x, 240), 800);
   }
 
-  let innerHeight = $state(0);
   let dragHeight = $state<number | null>(null);
   let drag: { y: number; height: number; moved: boolean } | null = null;
 
-  const openHeight = $derived(Math.max(innerHeight * 0.7 - keyboard.inset, 0));
+  // sized from the keyboard-free height so the top edge stays put when the keyboard opens
+  const openHeight = $derived(Math.max(keyboard.screenHeight * 0.7 - keyboard.height, 0));
   const height = $derived(dragHeight ?? (open ? openHeight : 0));
 
   function startDrag(e: PointerEvent & { currentTarget: HTMLElement }) {
@@ -70,8 +70,6 @@
     dragHeight = null;
   }
 </script>
-
-<svelte:window bind:innerHeight />
 
 {#if open && !isDesktop.current}
   <button

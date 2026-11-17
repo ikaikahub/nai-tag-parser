@@ -2,7 +2,7 @@
   import '../app.css';
   import BottomSheet from '$lib/components/BottomSheet.svelte';
   import ToggleButton from '$lib/components/ToggleButton.svelte';
-  import { exportBackup, importBackup } from '$lib/backup';
+  import { exportBackup, importBackup } from '$lib/backup.svelte';
   import { account, refreshAccount } from '$lib/state/account.svelte';
   import { settings } from '$lib/state/settings.svelte';
   import { onMount } from 'svelte';
@@ -10,15 +10,17 @@
   let { children } = $props();
 
   let settingsOpen = $state(false);
-  let backupInput = $state<HTMLInputElement>();
   let backupMessage = $state('');
+  let importInput = $state<HTMLInputElement>();
 
   onMount(refreshAccount);
 
-  async function importFile(e: Event & { currentTarget: HTMLInputElement }) {
-    const file = e.currentTarget.files?.[0];
-    e.currentTarget.value = '';
-    if (!file) return;
+  // also runs when the page regains focus, since Firefox on Android may hand over the file without any event
+  async function importFile() {
+    const file = importInput?.files?.[0];
+    if (!importInput || !file) return;
+    importInput.value = '';
+    backupMessage = `📂 Reading ${file.name}…`;
     try {
       const imported = await importBackup(file);
       backupMessage = `✅ Imported ${imported.chunks} saved chunks and ${imported.prompts} favourites`;
@@ -28,6 +30,8 @@
     }
   }
 </script>
+
+<svelte:window onfocus={() => setTimeout(importFile, 300)} />
 
 <div class="flex h-dvh flex-col">
   <header class="flex h-10 shrink-0 items-center gap-4 border-b border-base-300 bg-base-200 px-3 md:h-12">
@@ -85,8 +89,19 @@
       <span class="text-xs opacity-60">Saved chunks, favourites, prompt, settings and API key</span>
       <div class="flex gap-2">
         <button class="btn btn-sm flex-1" onclick={exportBackup}>Export</button>
-        <button class="btn btn-sm flex-1" onclick={() => backupInput?.click()}>Import</button>
-        <input bind:this={backupInput} type="file" accept=".json,application/json" class="hidden" onchange={importFile} />
+        <!-- a label instead of input.click() because Firefox on Android can skip change events for hidden inputs -->
+        <label class="btn btn-sm flex-1">
+          Import
+          <input
+            bind:this={importInput}
+            type="file"
+            class="sr-only"
+            onclick={() => (backupMessage = '📂 Choose a backup file')}
+            onchange={importFile}
+            oninput={importFile}
+            oncancel={() => (backupMessage = 'No file picked')}
+          />
+        </label>
       </div>
       {#if backupMessage}<span class="text-xs">{backupMessage}</span>{/if}
     </div>

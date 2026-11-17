@@ -24,8 +24,11 @@ export function exportBackup() {
   const link = document.createElement('a');
   link.href = URL.createObjectURL(new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' }));
   link.download = `nai-ats-backup-${new Date().toISOString().slice(0, 10)}.json`;
+  // Firefox drops downloads from detached links or URLs revoked straight away, and the page behind an open dialog is inert
+  (document.querySelector('dialog[open]') ?? document.body).append(link);
   link.click();
-  URL.revokeObjectURL(link.href);
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(link.href), 60_000);
 }
 
 // favourites are merged without duplicates, everything else is replaced
