@@ -1,5 +1,6 @@
 <script lang="ts">
   import '../app.css';
+  import { asset } from '$app/paths';
   import BottomSheet from '$lib/components/BottomSheet.svelte';
   import ToggleButton from '$lib/components/ToggleButton.svelte';
   import { exportBackup, importBackup } from '$lib/backup.svelte';
@@ -35,7 +36,9 @@
 
 <div class="flex h-dvh flex-col">
   <header class="flex h-10 shrink-0 items-center gap-4 border-b border-base-300 bg-base-200 px-3 md:h-12">
-    <span class="text-sm font-semibold">🔥 NAI Advanced Tag Manager</span>
+    <span class="flex items-center gap-2 text-sm font-semibold">
+      <img src={asset('/favicon.png')} alt="" class="size-6" />Bocchi Tagger
+    </span>
     {#if account.usage}
       <div class="ml-auto flex gap-4 text-sm max-md:hidden">
         <span title="Opus generations left">{account.usage.opus_percentage}%</span>

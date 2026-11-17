@@ -71,10 +71,10 @@
     <div class="flex items-center gap-2 border-b border-base-300 p-2">
       <div class="tabs tabs-box tabs-sm flex-1" role="tablist">
         <button class="tab flex-1" class:tab-active={tab === 'chunks'} role="tab" onclick={() => (tab = 'chunks')}>
-          ⭐ Saved
+          ⭐ Saved chunks
         </button>
         <button class="tab flex-1" class:tab-active={tab === 'prompts'} role="tab" onclick={() => (tab = 'prompts')}>
-          ♥️ Favourites
+          ♥️ Favourite prompts
         </button>
       </div>
       <button class="btn btn-ghost btn-sm btn-square" title="Close" onclick={() => (open = false)}>✕</button>

@@ -44,8 +44,8 @@
     ♥️
   </button>
 
-  <button class="btn btn-sm flex-1" onclick={() => openScreen('chunks')}>⭐ Saved</button>
-  <button class="btn btn-sm flex-1" onclick={() => openScreen('prompts')}>♥️ Favourites</button>
+  <button class="btn btn-sm flex-1" onclick={() => openScreen('chunks')}>⭐ Saved chunks</button>
+  <button class="btn btn-sm flex-1" onclick={() => openScreen('prompts')}>♥️ Favourite prompts</button>
 </div>
 
 <FavouritesScreen
