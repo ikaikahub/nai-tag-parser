@@ -24,10 +24,10 @@
         <input class="input input-sm join-item w-full" type="number" name="seed" placeholder="Random" bind:value={params.seed} />
         <button
           type="button"
-          class="btn btn-sm join-item"
-          title="Use last generation's seed"
-          disabled={lastSeed === undefined}
-          onclick={() => (params.seed = lastSeed ?? null)}
+          class={['btn btn-sm join-item', params.seed !== null && 'btn-active']}
+          title={params.seed !== null ? 'Back to a random seed' : "Use last generation's seed"}
+          disabled={params.seed === null && lastSeed === undefined}
+          onclick={() => (params.seed = params.seed !== null ? null : (lastSeed ?? null))}
         >
           🌱
         </button>

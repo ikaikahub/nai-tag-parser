@@ -1,9 +1,12 @@
 import { generationSettings, prompt } from './generate.svelte';
+import { history } from './history.svelte';
 import { persisted } from './persisted.svelte';
 
 type NovelAiSettings = typeof generationSettings;
 
 export type FavouritePrompt = { text: string; backend: 'novelai'; settings: NovelAiSettings };
+
+export type RestoreMode = 'text' | 'settings' | 'seed';
 
 export const favourites = persisted('favourites', {
   chunks: [] as string[],
@@ -14,8 +17,11 @@ export function favouriteChunk(text: string) {
   if (!favourites.chunks.includes(text)) favourites.chunks.unshift(text);
 }
 
+// a random seed is saved as the latest image's seed, so restoring with the seed reproduces it
 function currentFavourite(): FavouritePrompt {
-  return { text: prompt.text, backend: 'novelai', settings: $state.snapshot(generationSettings) };
+  const settings = $state.snapshot(generationSettings);
+  settings.params.seed ??= history.items[0]?.images[0]?.seed ?? null;
+  return { text: prompt.text, backend: 'novelai', settings };
 }
 
 export function isCurrentPromptFavourite() {
@@ -27,9 +33,12 @@ export function favouriteCurrentPrompt() {
   if (!isCurrentPromptFavourite()) favourites.prompts.unshift(currentFavourite());
 }
 
-export function restoreFavourite(favourite: FavouritePrompt, withSettings: boolean) {
+export function restoreFavourite(favourite: FavouritePrompt, mode: RestoreMode) {
   prompt.text = favourite.text;
-  if (withSettings) Object.assign(generationSettings, $state.snapshot(favourite).settings);
+  if (mode === 'text') return;
+  const settings = $state.snapshot(favourite).settings;
+  if (mode === 'settings') settings.params.seed = generationSettings.params.seed;
+  Object.assign(generationSettings, settings);
 }
 
 export function removeChunk(index: number) {

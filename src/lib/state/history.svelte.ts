@@ -71,7 +71,6 @@ export const history = $state({ items: [] as HistoryEntry[], loading: false, don
 
 export const historySelection = $state({
   entryId: null as number | null,
-  enlargedImageId: null as number | null,
 });
 
 export async function loadMoreHistory() {

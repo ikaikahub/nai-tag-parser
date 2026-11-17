@@ -1,11 +1,13 @@
 import { formatTags, joinTags, parseTags } from '$lib/tags';
 
-// markers are separate words: // disables the rest of the block, /c makes it a character, /u starts its undesired part
+// markers: // disables the rest of the block, /c starts a character block, /u starts its undesired part
 const DISABLED = '//';
 const CHARACTER = '/c';
 const UNDESIRED = '/u';
 // a lone / ends the block, so the rest of the line starts a new one
 const BLOCK_END = '/';
+const MARKER = /\/\/|\/c|\/u/g;
+const MARKER_RUN = /^(?:\/\/|\/c|\/u)+/;
 
 // NovelAI emphasis: { ] multiply by 1.05, } [ divide, 1.5:: sets a weight and :: resets it
 const EMPHASIS = /(-?\d*\.?\d+::|::|[{}[\]])/;
@@ -18,8 +20,8 @@ export type Segment = {
   readonly weight: number;
   // inside weight syntax, even one that works out to 1 like 1::tag::
   readonly emphasised: boolean;
-  // counts every block shown, including fully disabled ones
-  readonly blockNumber: number;
+  // which character this is, counting /c blocks only, so stray / or base blocks don't renumber them
+  readonly characterNumber: number | null;
 };
 
 export type Block = {
@@ -46,12 +48,9 @@ export function parsePrompt(text: string): { lines: Segment[][]; blocks: Block[]
   let numericSet = false;
   let openBrackets = 0;
   let bracketWeight = 1;
-  let blockNumber = 0;
-  let blockShown = false;
+  let characterCount = 0;
 
   const finishBlock = () => {
-    if (blockShown) blockNumber++;
-    blockShown = false;
     if (block.positive.trim() || block.undesired.trim()) blocks.push(block);
     block = { character: false, positive: '', undesired: '' };
     inUndesired = disabled = false;
@@ -77,19 +76,19 @@ export function parsePrompt(text: string): { lines: Segment[][]; blocks: Block[]
     const emit = (segmentText: string, kind: Segment['kind']) => {
       const weight = kind === 'text' ? numericWeight * bracketWeight : 1;
       const emphasised = kind === 'text' && (numericSet || openBrackets > 0);
+      const characterNumber = block.character ? characterCount - 1 : null;
       const last = segments.at(-1);
-      blockShown = true;
       if (
         last &&
         last.kind === kind &&
         last.disabled === disabled &&
         last.weight === weight &&
         last.emphasised === emphasised &&
-        last.blockNumber === blockNumber
+        last.characterNumber === characterNumber
       ) {
         segments[segments.length - 1] = { ...last, text: last.text + segmentText };
       } else {
-        segments.push({ text: segmentText, kind, disabled, weight, emphasised, blockNumber });
+        segments.push({ text: segmentText, kind, disabled, weight, emphasised, characterNumber });
       }
     };
 
@@ -123,16 +122,27 @@ export function parsePrompt(text: string): { lines: Segment[][]; blocks: Block[]
       } else if (token === BLOCK_END) {
         emit(token, 'marker');
         finishBlock();
-      } else if ([CHARACTER, UNDESIRED].includes(token)) {
-        if (token === CHARACTER) block.character = true;
-        else inUndesired = true;
-        emit(token, 'marker');
-      } else if (token.startsWith(DISABLED)) {
-        disabled = true;
-        emit(DISABLED, 'marker');
-        if (token.length > DISABLED.length) emitContent(token.slice(DISABLED.length));
       } else {
-        emitContent(token);
+        // markers can be written together like /c// as long as the word is only markers,
+        // or ends in // with text after it like //tag, so words like /cat stay text
+        const run = token.match(MARKER_RUN)?.[0] ?? '';
+        if (!run || (run !== token && !run.endsWith(DISABLED))) {
+          emitContent(token);
+          continue;
+        }
+        for (const marker of run.match(MARKER)!) {
+          // a /c after some content starts the next character, only disabled text runs on to a blank line or /
+          const startsNextBlock = marker === CHARACTER && !disabled && (block.positive.trim() || block.undesired.trim());
+          if (startsNextBlock) finishBlock();
+          if (marker === CHARACTER && !block.character) {
+            block.character = true;
+            characterCount++;
+          }
+          else if (marker === UNDESIRED) inUndesired = true;
+          else disabled = true;
+          emit(marker, 'marker');
+        }
+        if (run !== token) emitContent(token.slice(run.length));
       }
     }
     addContent('\n');

@@ -4,7 +4,7 @@
 
 <script lang="ts">
   import PromptText from './PromptText.svelte';
-  import { favourites, removeChunk, removeFavourite, restoreFavourite } from '$lib/state/favourites.svelte';
+  import { favourites, removeChunk, removeFavourite, restoreFavourite, type RestoreMode } from '$lib/state/favourites.svelte';
 
   let {
     open = $bindable(),
@@ -37,8 +37,8 @@
     open = false;
   }
 
-  function restore(index: number, withSettings: boolean) {
-    restoreFavourite(favourites.prompts[index], withSettings);
+  function restore(index: number, mode: RestoreMode) {
+    restoreFavourite(favourites.prompts[index], mode);
     open = false;
   }
 </script>
@@ -61,7 +61,13 @@
     armedDelete = null;
   }}
 >
-  <div class="modal-box flex size-full max-h-none max-w-none flex-col rounded-none p-0">
+  <div
+    class={[
+      'modal-box flex flex-col p-0',
+      'max-md:size-full max-md:max-h-none max-md:max-w-none max-md:rounded-none',
+      'md:h-[80dvh] md:w-full md:max-w-2xl',
+    ]}
+  >
     <div class="flex items-center gap-2 border-b border-base-300 p-2">
       <div class="tabs tabs-box tabs-sm flex-1" role="tablist">
         <button class="tab flex-1" class:tab-active={tab === 'chunks'} role="tab" onclick={() => (tab = 'chunks')}>
@@ -91,9 +97,10 @@
           {#each favourites.prompts as favourite, index (index)}
             <div class="relative flex flex-col gap-2 rounded-box bg-base-200 p-3 pr-20">
               <div class={TEXT}><PromptText text={favourite.text} /></div>
-              <div class="flex gap-1">
-                <button class="btn btn-sm" onclick={() => restore(index, false)}>Text</button>
-                <button class="btn btn-sm" onclick={() => restore(index, true)}>Text + settings</button>
+              <div class="flex flex-wrap gap-1">
+                <button class="btn btn-sm" onclick={() => restore(index, 'text')}>Text</button>
+                <button class="btn btn-sm" onclick={() => restore(index, 'settings')}>Text + settings</button>
+                <button class="btn btn-sm" onclick={() => restore(index, 'seed')}>Text + settings + seed</button>
               </div>
               {@render deleteButton(`prompt-${index}`, () => removeFavourite(index))}
             </div>
@@ -104,4 +111,5 @@
       </div>
     </div>
   </div>
+  <form method="dialog" class="modal-backdrop"><button>close</button></form>
 </dialog>

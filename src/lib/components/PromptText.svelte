@@ -27,8 +27,15 @@
     return `linear-gradient(${faded}, ${faded})`;
   }
 
-  // /c markers and disabled text get tints, neighbouring ones differ so they are easy to tell apart
-  const BLOCK_TINTS = ['--color-primary', '--color-secondary', '--color-accent', '--color-info'];
+  // each character's /c and /u markers share a muted colour, spread around the colour wheel by the golden angle
+  // so neighbouring characters always look different, and /u outside a character gets a plain one
+  const markerColour = (characterNumber: number | null) =>
+    characterNumber === null ? 'oklch(0.45 0.02 260)' : `oklch(0.45 0.09 ${(characterNumber * 137.508) % 360})`;
+
+  function segmentBackground(segment: Segment) {
+    if (segment.disabled) return 'color-mix(in oklab, var(--color-base-content) 8%, transparent)';
+    if (segment.kind === 'marker' && /\/[cu]/.test(segment.text)) return markerColour(segment.characterNumber);
+  }
 
   const KIND_CLASSES: Record<Segment['kind'], string> = {
     marker: 'text-primary/70',
@@ -39,8 +46,6 @@
 
 {#each parsed.lines as segments, lineIndex (lineIndex)}{lineIndex ? '\n' : ''}{#each segments as segment, index (index)}<span
       class={[KIND_CLASSES[segment.kind], segment.disabled && 'opacity-35']}
-      style:background-color={segment.disabled || (segment.kind === 'marker' && segment.text.trim() === '/c')
-        ? `color-mix(in oklab, var(${BLOCK_TINTS[segment.blockNumber % BLOCK_TINTS.length]}) 12%, transparent)`
-        : undefined}
+      style:background-color={segmentBackground(segment)}
       style:background-image={segment.emphasised ? weightBackground(segment.weight) : undefined}>{segment.text}</span
     >{/each}{/each}

@@ -1,6 +1,5 @@
 <script lang="ts">
   import BaseSidebar from '$lib/components/BaseSidebar.svelte';
-  import ScrollArea from '$lib/components/ScrollArea.svelte';
   import PromptEditor from '$lib/components/PromptEditor.svelte';
   import FavouritesBar from '$lib/components/FavouritesBar.svelte';
   import GenerationSettings from '$lib/components/GenerationSettings.svelte';
@@ -8,7 +7,6 @@
   import { fade, slide } from 'svelte/transition';
   import { ANIMATION_MS } from '$lib/theme';
   import GenerationView from '$lib/components/GenerationView.svelte';
-  import ImageGallery from '$lib/components/ImageGallery.svelte';
   import CollapseTab from '$lib/components/CollapseTab.svelte';
   import { addNewestHistory, history, historySelection, loadMoreHistory } from '$lib/state/history.svelte';
   import { onMount, tick } from 'svelte';
@@ -24,6 +22,8 @@
   import { account, refreshAccount } from '$lib/state/account.svelte';
   import { maxSamples, QUALITY_TAGS, UC_PRESETS, type Resolution } from '$lib/presets';
   import { generationSettings, prompt } from '$lib/state/generate.svelte';
+
+  const isDesktop = new MediaQuery('min-width: 768px');
 
   let previewOpen = $state(false);
   let selection = $state({ start: 0, end: 0 });
@@ -74,23 +74,32 @@
     return () => observer.unobserve(el);
   }
 
-  let scrolledDown = $state(false);
+  let scrolledAway = $state(false);
+
+  // the feed scrolls down on PC and swipes sideways on phones, like a gallery app
+  const feedAxis = $derived(
+    isDesktop.current
+      ? ({ start: 'scrollTop', size: 'clientHeight', total: 'scrollHeight', edge: 'top' } as const)
+      : ({ start: 'scrollLeft', size: 'clientWidth', total: 'scrollWidth', edge: 'left' } as const),
+  );
 
   function onFeedScroll(e: Event & { currentTarget: HTMLElement }) {
     const el = e.currentTarget;
-    scrolledDown = el.scrollTop > el.clientHeight / 2;
-    if (el.scrollTop + el.clientHeight > el.scrollHeight - 3 * el.clientHeight) loadMoreHistory();
+    const position = el[feedAxis.start];
+    scrolledAway = position > el[feedAxis.size] / 2;
+    if (position + el[feedAxis.size] > el[feedAxis.total] - 3 * el[feedAxis.size]) loadMoreHistory();
   }
 
-  function scrollFeedTo(top: number) {
+  function scrollFeedTo(target: number) {
     const el = feed;
     if (!el) return;
-    const start = el.scrollTop;
+    const property = feedAxis.start;
+    const start = el[property];
     const startTime = performance.now();
     el.style.scrollSnapType = 'none';
     const step = (now: number) => {
       const progress = Math.min((now - startTime) / (ANIMATION_MS * 2), 1);
-      el.scrollTop = start + (top - start) * (1 - (1 - progress) ** 3);
+      el[property] = start + (target - start) * (1 - (1 - progress) ** 3);
       if (progress < 1) requestAnimationFrame(step);
       else el.style.scrollSnapType = '';
     };
@@ -99,21 +108,10 @@
 
   function scrollToEntry(id: number) {
     historySelection.entryId = id;
-    historySelection.enlargedImageId = null;
     const target = feed?.querySelector(`[data-id="${id}"]`);
-    if (feed && target) scrollFeedTo(target.getBoundingClientRect().top - feed.getBoundingClientRect().top + feed.scrollTop);
-  }
-
-  const galleryImages = $derived(
-    history.items.flatMap((entry) => entry.images.map((image) => ({ ...image, width: entry.width, height: entry.height }))),
-  );
-
-  function setViewedImage(id: number | null) {
-    const viewedId = historySelection.enlargedImageId;
-    historySelection.enlargedImageId = id;
-    // closing the gallery leaves the feed on the generation that was looked at last
-    const viewedEntry = id === null && history.items.find((entry) => entry.images.some((image) => image.id === viewedId));
-    if (viewedEntry) scrollToEntry(viewedEntry.id);
+    if (!feed || !target) return;
+    const edge = feedAxis.edge;
+    scrollFeedTo(target.getBoundingClientRect()[edge] - feed.getBoundingClientRect()[edge] + feed[feedAxis.start]);
   }
 
   function stepHistory(direction: 1 | -1) {
@@ -124,7 +122,6 @@
   }
 
 
-  const isDesktop = new MediaQuery('min-width: 768px');
 
   let drawerOpen = $state(false);
 
@@ -161,7 +158,7 @@
 
   function onkeydown(e: KeyboardEvent) {
     // the gallery handles its own keys
-    if (page.route.id !== '/' || historySelection.enlargedImageId !== null) return;
+    if (page.route.id !== '/') return;
     const target = e.target as HTMLElement;
     const isField = target instanceof HTMLTextAreaElement || target instanceof HTMLInputElement;
     if (e.isComposing || target.closest('dialog, [popover]') || document.querySelector('dialog[open]')) return;
@@ -170,9 +167,9 @@
     if (e.key === 'Enter' && !e.shiftKey && generatesFromHere) {
       e.preventDefault();
       generateImage();
-    } else if ((e.key === 'ArrowDown' || e.key === 'ArrowUp') && !isField) {
+    } else if (['ArrowDown', 'ArrowUp', 'ArrowRight', 'ArrowLeft'].includes(e.key) && !isField) {
       e.preventDefault();
-      stepHistory(e.key === 'ArrowDown' ? 1 : -1);
+      stepHistory(e.key === 'ArrowDown' || e.key === 'ArrowRight' ? 1 : -1);
     }
   }
 </script>
@@ -233,14 +230,16 @@
   <section class="flex h-full min-w-0 flex-1 max-md:pb-15">
     <div class="relative min-w-0 flex-1">
       {#if history.items.length || pending}
-        <ScrollArea
-          bind:viewport={feed}
-          class="h-full"
-          viewportClass="flex h-full snap-y snap-mandatory flex-col gap-[10dvh] [overflow-anchor:none]"
+        <div
+          bind:this={feed}
+          class={[
+            'flex h-full snap-mandatory [overflow-anchor:none] [scrollbar-width:none]',
+            isDesktop.current ? 'snap-y flex-col gap-[10dvh] overflow-y-auto' : 'snap-x gap-4 overflow-x-auto',
+          ]}
           onscroll={onFeedScroll}
         >
           {#if pending}
-            <div class="h-full shrink-0 snap-start">
+            <div class="h-full w-full shrink-0 snap-start snap-always">
               <GenerationView
                 pending
                 size={pending.size}
@@ -249,22 +248,22 @@
             </div>
           {/if}
           {#each history.items as entry (entry.id)}
-            <div class="h-full shrink-0 snap-start" data-id={entry.id} {@attach observeFeedItem}>
-              <GenerationView images={entry.images} size={entry} bind:enlargedId={historySelection.enlargedImageId} />
+            <div class="h-full w-full shrink-0 snap-start snap-always" data-id={entry.id} {@attach observeFeedItem}>
+              <GenerationView images={entry.images} size={entry} />
             </div>
           {/each}
-        </ScrollArea>
+        </div>
       {:else}
         <p class="grid h-full place-items-center opacity-50">Your image will show up here</p>
       {/if}
 
-      {#if scrolledDown}
+      {#if scrolledAway}
         <button
           class="btn btn-sm absolute top-2 left-1/2 -translate-x-1/2"
           transition:fade={{ duration: ANIMATION_MS }}
           onclick={() => scrollFeedTo(0)}
         >
-          ⬆️ Go to top
+          {isDesktop.current ? '⬆️' : '⬅️'} Newest
         </button>
       {/if}
 
@@ -292,11 +291,4 @@
 
 <PromptPreview bind:open={previewOpen} />
 
-{#if historySelection.enlargedImageId !== null}
-  <ImageGallery
-    images={galleryImages}
-    bind:currentId={() => historySelection.enlargedImageId, setViewedImage}
-    onnearend={loadMoreHistory}
-  />
-{/if}
 

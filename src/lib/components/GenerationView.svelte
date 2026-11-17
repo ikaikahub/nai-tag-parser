@@ -4,20 +4,21 @@
   import { settings } from '$lib/state/settings.svelte';
 
   type Image = { id: number; src: string | null; fileName?: string };
+  type Box = { left: number; top: number; width: number; height: number };
 
-  let {
-    images,
-    size,
-    enlargedId = $bindable(null),
-    pending = false,
-  }: { images: Image[]; size: Resolution; enlargedId?: number | null; pending?: boolean } = $props();
+  let { images, size, pending = false }: { images: Image[]; size: Resolution; pending?: boolean } = $props();
 
   const GAP = 8;
 
   let containerWidth = $state(0);
   let containerHeight = $state(0);
 
-  const grid = $derived.by(() => {
+  // in a batch, tapping an image shows it alone at full size until it's tapped again
+  let focusedId = $state<number | null>(null);
+  const showsOne = $derived(images.length === 1 || images.some((image) => image.id === focusedId));
+
+  // the largest grid of cells that fits, centred, with any short row first
+  const cells = $derived.by(() => {
     const aspect = size.width / size.height;
     const availableWidth = containerWidth - 2 * GAP;
     const availableHeight = containerHeight - 2 * GAP;
@@ -30,52 +31,90 @@
       );
       if (cellWidth > best.cellWidth) best = { columns, cellWidth };
     }
-    const firstRowSize = images.length - (Math.ceil(images.length / best.columns) - 1) * best.columns;
-    const rows = [images.slice(0, firstRowSize)];
-    for (let start = firstRowSize; start < images.length; start += best.columns) rows.push(images.slice(start, start + best.columns));
     const cellWidth = Math.max(Math.floor(best.cellWidth), 0);
-    return { rows, cellWidth, cellHeight: Math.floor(cellWidth / aspect) };
+    const cellHeight = Math.floor(cellWidth / aspect);
+    const rowCount = Math.ceil(images.length / best.columns);
+    const firstRowSize = images.length - (rowCount - 1) * best.columns;
+    const gridTop = (containerHeight - rowCount * cellHeight - (rowCount - 1) * GAP) / 2;
+
+    const boxes = new Map<number, Box>();
+    images.forEach((image, index) => {
+      const row = index < firstRowSize ? 0 : 1 + Math.floor((index - firstRowSize) / best.columns);
+      const column = row === 0 ? index : (index - firstRowSize) % best.columns;
+      const rowSize = row === 0 ? firstRowSize : Math.min(best.columns, images.length - firstRowSize - (row - 1) * best.columns);
+      const rowLeft = (containerWidth - rowSize * cellWidth - (rowSize - 1) * GAP) / 2;
+      boxes.set(image.id, {
+        left: rowLeft + column * (cellWidth + GAP),
+        top: gridTop + row * (cellHeight + GAP),
+        width: cellWidth,
+        height: cellHeight,
+      });
+    });
+    return boxes;
   });
+
+  // a single or focused image gets the whole area, so zooming can spread over it
+  const fullBox = $derived({ left: GAP, top: GAP, width: containerWidth - 2 * GAP, height: containerHeight - 2 * GAP });
+
+  function boxOf(image: Image) {
+    if (pending || !showsOne) return cells.get(image.id);
+    return images.length === 1 || image.id === focusedId ? fullBox : undefined;
+  }
+
+  let zoomables: Record<number, ZoomableImage> = $state({});
+
+  // any tap on a focused image closes it, zoomed or not, and it goes back into the grid unzoomed
+  function toggleFocus(image: Image) {
+    if (images.length === 1) return;
+    if (focusedId === image.id) {
+      zoomables[image.id]?.resetZoom();
+      focusedId = null;
+    } else {
+      focusedId = image.id;
+    }
+  }
 </script>
 
-{#snippet download(image: Image, visibility: string)}
-  <a
-    class={['absolute right-2 bottom-2 z-10 text-lg leading-none transition-opacity', visibility]}
-    href={image.src}
-    download={image.fileName}
-    title="Download"
-    onclick={(e) => e.stopPropagation()}
-  >
-    💾
-  </a>
-{/snippet}
-
-<div
-  bind:clientWidth={containerWidth}
-  bind:clientHeight={containerHeight}
-  class="relative flex size-full flex-col items-center justify-center"
-  style:gap="{GAP}px"
->
-  {#each grid.rows as row, index (index)}
-    <div class="flex" style:gap="{GAP}px">
-      {#each row as image (image.id)}
-        <div class="group relative" style:width="{grid.cellWidth}px" style:height="{grid.cellHeight}px">
-          {#if pending}
-            <div class="grid size-full place-items-center overflow-hidden">
-              {#if image.src}
-                <img src={image.src} alt="" draggable="false" class={['size-full object-contain', settings.blurStreamed && 'blur-lg']} />
-              {:else}
-                <span class="loading loading-spinner"></span>
-              {/if}
-            </div>
-          {:else if image.src}
-            <div class="size-full cursor-zoom-in">
-              <ZoomableImage src={image.src} {size} ontap={() => (enlargedId = image.id)} />
-            </div>
+<div bind:clientWidth={containerWidth} bind:clientHeight={containerHeight} class="relative size-full">
+  {#each images as image (image.id)}
+    {@const box = boxOf(image)}
+    <div
+      class={['group absolute', !box && 'hidden']}
+      style:left="{box?.left ?? 0}px"
+      style:top="{box?.top ?? 0}px"
+      style:width="{box?.width ?? 0}px"
+      style:height="{box?.height ?? 0}px"
+    >
+      {#if pending}
+        <div class="grid size-full place-items-center overflow-hidden">
+          {#if image.src}
+            <img src={image.src} alt="" draggable="false" class={['size-full object-contain', settings.blurStreamed && 'blur-lg']} />
+          {:else}
+            <span class="loading loading-spinner"></span>
           {/if}
-          {#if !pending}{@render download(image, 'opacity-0 group-hover:opacity-80 focus-visible:opacity-80')}{/if}
         </div>
-      {/each}
+      {:else if image.src}
+        <div class={['size-full', showsOne ? 'cursor-zoom-in' : 'cursor-pointer']}>
+          <ZoomableImage
+            bind:this={zoomables[image.id]}
+            src={image.src}
+            {size}
+            ontap={() => toggleFocus(image)}
+            onzoomstart={() => images.length > 1 && (focusedId = image.id)}
+          />
+        </div>
+        <a
+          class={[
+            'absolute right-2 bottom-2 z-10 text-lg leading-none transition-opacity',
+            showsOne ? 'opacity-80' : 'opacity-0 group-hover:opacity-80 focus-visible:opacity-80',
+          ]}
+          href={image.src}
+          download={image.fileName}
+          title="Download"
+        >
+          💾
+        </a>
+      {/if}
     </div>
   {/each}
 </div>

@@ -1,22 +1,22 @@
 <script lang="ts">
+  import { untrack } from 'svelte';
   import type { Resolution } from '$lib/presets';
 
   let {
     src,
     size,
     zoomed = $bindable(false),
-    doubleTapZoom = false,
     ontap,
+    onzoomstart,
   }: {
     src: string;
     size: Resolution;
     zoomed?: boolean;
-    doubleTapZoom?: boolean;
-    ontap?: (onImage: boolean) => void;
+    ontap?: () => void;
+    onzoomstart?: () => void;
   } = $props();
 
   const MAX_SCALE = 10;
-  const DOUBLE_TAP_MS = 300;
   // further than this between press and release is a drag, not a tap
   const TAP_DISTANCE = 8;
 
@@ -31,7 +31,6 @@
   let scale = $state(1);
   let x = $state(0);
   let y = $state(0);
-  let animate = $state(false);
 
   $effect(() => {
     zoomed = scale > 1;
@@ -44,6 +43,19 @@
     x = Math.min(Math.max(x, -maxX), maxX);
     y = Math.min(Math.max(y, -maxY), maxY);
   }
+
+  export function resetZoom() {
+    scale = 1;
+    x = 0;
+    y = 0;
+  }
+
+  // a focused image grows mid-zoom, so the offset is re-limited to the new size
+  $effect(() => {
+    void fittedWidth;
+    void fittedHeight;
+    untrack(clampOffset);
+  });
 
   // zooms around a screen point so the spot under the fingers or cursor stays put
   function zoomAt(clientX: number, clientY: number, nextScale: number) {
@@ -63,18 +75,6 @@
     clampOffset();
   }
 
-  function toggleZoom(clientX: number, clientY: number) {
-    animate = true;
-    if (zoomed) {
-      scale = 1;
-      x = 0;
-      y = 0;
-    } else {
-      const fillScale = Math.max(containerWidth / size.width, containerHeight / size.height) / fitScale;
-      zoomAt(clientX, clientY, Math.max(fillScale, 2.5));
-    }
-  }
-
   let pinch: { distance: number; scale: number; midX: number; midY: number } | null = null;
 
   const touchDistance = (touches: TouchList) =>
@@ -88,14 +88,14 @@
     const onwheel = (e: WheelEvent) => {
       if (!e.ctrlKey) return;
       e.preventDefault();
-      animate = false;
+      if (!zoomed) onzoomstart?.();
       zoomAt(e.clientX, e.clientY, scale * Math.exp(-e.deltaY * 0.0015));
     };
 
     const ontouchstart = (e: TouchEvent) => {
       if (e.touches.length !== 2) return;
       pan = null;
-      animate = false;
+      onzoomstart?.();
       pinch = {
         distance: touchDistance(e.touches),
         scale,
@@ -137,14 +137,12 @@
 
   let pan: { pointerX: number; pointerY: number; x: number; y: number } | null = $state(null);
   let press: { x: number; y: number } | null = null;
-  let lastTap: { time: number; x: number; y: number } | null = null;
 
   function onpointerdown(e: PointerEvent & { currentTarget: HTMLElement }) {
     press = { x: e.clientX, y: e.clientY };
     if (!zoomed || pinch || !e.isPrimary) return;
-    // while zoomed, dragging belongs to the image and not to the feed or gallery swipes
+    // while zoomed, dragging pans the image instead of scrolling the feed
     e.stopPropagation();
-    animate = false;
     pan = { pointerX: e.clientX, pointerY: e.clientY, x, y };
     e.currentTarget.setPointerCapture(e.pointerId);
   }
@@ -160,25 +158,8 @@
     pan = null;
     const tapped = press && Math.hypot(e.clientX - press.x, e.clientY - press.y) < TAP_DISTANCE;
     press = null;
-    if (!tapped || pinch || !e.isPrimary) return;
-
-    const rect = container!.querySelector('img')!.getBoundingClientRect();
-    const onImage = e.clientX >= rect.left && e.clientX <= rect.right && e.clientY >= rect.top && e.clientY <= rect.bottom;
-    const now = performance.now();
-    const isDoubleTap =
-      doubleTapZoom &&
-      onImage &&
-      lastTap &&
-      now - lastTap.time < DOUBLE_TAP_MS &&
-      Math.hypot(e.clientX - lastTap.x, e.clientY - lastTap.y) < TAP_DISTANCE * 3;
-
-    if (isDoubleTap) {
-      lastTap = null;
-      toggleZoom(e.clientX, e.clientY);
-      return;
-    }
-    lastTap = { time: now, x: e.clientX, y: e.clientY };
-    ontap?.(onImage);
+    // dragging further than a tap pans instead, so a zoomed image can still be moved around
+    if (tapped && !pinch && e.isPrimary) ontap?.();
   }
 </script>
 
@@ -204,7 +185,7 @@
     draggable="false"
     width={size.width}
     height={size.height}
-    class={['max-w-none', animate && 'transition-transform duration-200 ease-out']}
+    class="max-w-none"
     style:width="{fittedWidth}px"
     style:height="{fittedHeight}px"
     style:transform="translate({x}px, {y}px) scale({scale})"
