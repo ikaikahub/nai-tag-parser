@@ -10,13 +10,22 @@ const sw = self as unknown as ServiceWorkerGlobalScope;
 const CACHE = `cache-${version}`;
 const APP_FILES = [...build, ...files, ...prerendered];
 
+// a new version takes over straight away instead of waiting for every tab to close, the page then reloads into it
 sw.addEventListener('install', (event) => {
-  event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(APP_FILES)));
+  event.waitUntil(
+    caches
+      .open(CACHE)
+      .then((cache) => cache.addAll(APP_FILES))
+      .then(() => sw.skipWaiting()),
+  );
 });
 
 sw.addEventListener('activate', (event) => {
   event.waitUntil(
-    caches.keys().then((keys) => Promise.all(keys.filter((key) => key !== CACHE).map((key) => caches.delete(key)))),
+    caches
+      .keys()
+      .then((keys) => Promise.all(keys.filter((key) => key !== CACHE).map((key) => caches.delete(key))))
+      .then(() => sw.clients.claim()),
   );
 });
 

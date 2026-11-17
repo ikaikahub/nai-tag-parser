@@ -57,6 +57,29 @@ more base tags
 
   onMount(refreshAccount);
 
+  // a new version replaces the old service worker right away, so reload once onto its files.
+  // the very first install also takes control of an uncontrolled page, which is not an update and needs no reload
+  onMount(() => {
+    if (!('serviceWorker' in navigator)) return;
+    let controlled = !!navigator.serviceWorker.controller;
+    let reloading = false;
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (!controlled) {
+        controlled = true;
+        return;
+      }
+      if (reloading) return;
+      reloading = true;
+      location.reload();
+    });
+  });
+
+  // an installed app can stay open for days, so look for a new version whenever it comes back into view
+  function checkForUpdate() {
+    if (document.visibilityState !== 'visible' || !('serviceWorker' in navigator)) return;
+    navigator.serviceWorker.getRegistration().then((registration) => registration?.update().catch(() => {}));
+  }
+
   // also runs when the page regains focus, since Firefox on Android may hand over the file without any event
   async function importFile() {
     const file = importInput?.files?.[0];
@@ -74,6 +97,7 @@ more base tags
 </script>
 
 <svelte:window onfocus={() => setTimeout(importFile, 300)} />
+<svelte:document onvisibilitychange={checkForUpdate} />
 
 <div class="flex h-dvh flex-col">
   <header class="flex h-10 shrink-0 items-center gap-4 border-b border-base-300 bg-base-200 px-3 md:h-12">

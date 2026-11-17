@@ -91,12 +91,6 @@
   }
 }
 
-/* quick crossfade between pages (see onNavigate in +layout.svelte) */
-::view-transition-old(root),
-::view-transition-new(root) {
-  animation-duration: 150ms;
-}
-
 /* only UI that animates on open/close/press, not loading loops; keep in sync with ANIMATION_MS in theme.ts */
 :is(.btn, .dropdown, .menu li > *, .modal, .modal-box, .toggle, .checkbox, .radio, .select, .tab, .collapse, .dock > *, .fab, .toast, .tooltip, .swap),
 :is(.modal, .toggle, .checkbox, .radio, .tooltip)::before,
@@ -104,23 +98,6 @@
 ::backdrop {
   transition-duration: 75ms !important;
   animation-duration: 75ms !important;
-}
-
-/* horizontal scroller whose ends fade out only when there's more to scroll that way */
-@property --fade-start { syntax: '<length>'; inherits: false; initial-value: 0px; }
-@property --fade-end { syntax: '<length>'; inherits: false; initial-value: 0px; }
-@keyframes scroll-fade-x {
-  from { --fade-start: 0px; --fade-end: 1.5rem; }
-  10% { --fade-start: 1.5rem; }
-  90% { --fade-end: 1.5rem; }
-  to { --fade-start: 1.5rem; --fade-end: 0px; }
-}
-.scroll-fade-x {
-  overflow-x: auto;
-  scrollbar-width: none;
-  mask-image: linear-gradient(to right, transparent, #000 var(--fade-start), #000 calc(100% - var(--fade-end)), transparent);
-  animation: scroll-fade-x linear both;
-  animation-timeline: scroll(self inline);
 }
 
 :is(.input, .textarea, .select):is(:focus, :focus-within) {
