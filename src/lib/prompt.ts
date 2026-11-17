@@ -16,6 +16,8 @@ export type Segment = {
   readonly kind: 'marker' | 'emphasis' | 'text';
   readonly disabled: boolean;
   readonly weight: number;
+  // inside weight syntax, even one that works out to 1 like 1::tag::
+  readonly emphasised: boolean;
   // counts every block shown, including fully disabled ones
   readonly blockNumber: number;
 };
@@ -41,6 +43,8 @@ export function parsePrompt(text: string): { lines: Segment[][]; blocks: Block[]
   let inUndesired = false;
   let disabled = false;
   let numericWeight = 1;
+  let numericSet = false;
+  let openBrackets = 0;
   let bracketWeight = 1;
   let blockNumber = 0;
   let blockShown = false;
@@ -52,6 +56,8 @@ export function parsePrompt(text: string): { lines: Segment[][]; blocks: Block[]
     block = { character: false, positive: '', undesired: '' };
     inUndesired = disabled = false;
     numericWeight = bracketWeight = 1;
+    numericSet = false;
+    openBrackets = 0;
   };
 
   const addContent = (content: string) => {
@@ -70,6 +76,7 @@ export function parsePrompt(text: string): { lines: Segment[][]; blocks: Block[]
 
     const emit = (segmentText: string, kind: Segment['kind']) => {
       const weight = kind === 'text' ? numericWeight * bracketWeight : 1;
+      const emphasised = kind === 'text' && (numericSet || openBrackets > 0);
       const last = segments.at(-1);
       blockShown = true;
       if (
@@ -77,11 +84,12 @@ export function parsePrompt(text: string): { lines: Segment[][]; blocks: Block[]
         last.kind === kind &&
         last.disabled === disabled &&
         last.weight === weight &&
+        last.emphasised === emphasised &&
         last.blockNumber === blockNumber
       ) {
         segments[segments.length - 1] = { ...last, text: last.text + segmentText };
       } else {
-        segments.push({ text: segmentText, kind, disabled, weight, blockNumber });
+        segments.push({ text: segmentText, kind, disabled, weight, emphasised, blockNumber });
       }
     };
 
@@ -95,8 +103,12 @@ export function parsePrompt(text: string): { lines: Segment[][]; blocks: Block[]
         }
         if (part === '{' || part === ']') bracketWeight *= BRACKET_STEP;
         else if (part === '}' || part === '[') bracketWeight /= BRACKET_STEP;
+        if (part === '{' || part === '[') openBrackets++;
+        else if (part === '}' || part === ']') openBrackets = Math.max(openBrackets - 1, 0);
         else {
           numericWeight = part === '::' ? 1 : Number(part.slice(0, -2));
+          numericSet = part !== '::';
+          openBrackets = 0;
           bracketWeight = 1;
         }
         emit(part, 'emphasis');

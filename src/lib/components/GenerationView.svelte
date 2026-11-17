@@ -1,5 +1,5 @@
 <script lang="ts">
-  import ImageOverlay from './ImageOverlay.svelte';
+  import ZoomableImage from './ZoomableImage.svelte';
   import type { Resolution } from '$lib/presets';
   import { settings } from '$lib/state/settings.svelte';
 
@@ -16,8 +16,6 @@
 
   let containerWidth = $state(0);
   let containerHeight = $state(0);
-
-  const enlarged = $derived(pending ? undefined : images.find((image) => image.id === enlargedId));
 
   const grid = $derived.by(() => {
     const aspect = size.width / size.height;
@@ -62,32 +60,22 @@
     <div class="flex" style:gap="{GAP}px">
       {#each row as image (image.id)}
         <div class="group relative" style:width="{grid.cellWidth}px" style:height="{grid.cellHeight}px">
-          <button
-            class="grid size-full place-items-center overflow-hidden"
-            class:cursor-zoom-in={!pending}
-            disabled={pending}
-            onclick={() => (enlargedId = image.id)}
-          >
-            {#if image.src}
-              <img
-                src={image.src}
-                alt=""
-                draggable="false"
-                class={['size-full object-contain', pending && settings.blurStreamed && 'blur-lg']}
-              />
-            {:else}
-              <span class="loading loading-spinner"></span>
-            {/if}
-          </button>
+          {#if pending}
+            <div class="grid size-full place-items-center overflow-hidden">
+              {#if image.src}
+                <img src={image.src} alt="" draggable="false" class={['size-full object-contain', settings.blurStreamed && 'blur-lg']} />
+              {:else}
+                <span class="loading loading-spinner"></span>
+              {/if}
+            </div>
+          {:else if image.src}
+            <div class="size-full cursor-zoom-in">
+              <ZoomableImage src={image.src} {size} ontap={() => (enlargedId = image.id)} />
+            </div>
+          {/if}
           {#if !pending}{@render download(image, 'opacity-0 group-hover:opacity-80 focus-visible:opacity-80')}{/if}
         </div>
       {/each}
     </div>
   {/each}
-
-  {#if enlarged?.src}
-    <ImageOverlay src={enlarged.src} {size} onclose={() => (enlargedId = null)}>
-      {@render download(enlarged, 'opacity-80')}
-    </ImageOverlay>
-  {/if}
 </div>

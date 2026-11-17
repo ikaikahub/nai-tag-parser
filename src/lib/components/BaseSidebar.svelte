@@ -36,6 +36,12 @@
   // sized from the keyboard-free height so the top edge stays put when the keyboard opens
   const openHeight = $derived(Math.max(keyboard.screenHeight * 0.7 - keyboard.height, 0));
   const height = $derived(dragHeight ?? (open ? openHeight : 0));
+  // the open height is left to CSS so it follows the keyboard in the same frame the page resizes
+  const heightStyle = $derived(
+    dragHeight !== null || !open
+      ? `${height}px`
+      : `max(calc(100dvh - ${keyboard.screenHeight * 0.3}px - var(--keyboard-inset, 0px)), 0px)`,
+  );
 
   function startDrag(e: PointerEvent & { currentTarget: HTMLElement }) {
     drag = { y: e.clientY, height, moved: false };
@@ -63,8 +69,24 @@
     return () => observer.disconnect();
   });
 
+  // opening, closing and drag releases animate, keyboard changes apply instantly so the top edge doesn't bounce
+  let animateHeight = $state(false);
+  let animationTimer: ReturnType<typeof setTimeout> | undefined;
+
+  function animateNextHeight() {
+    animateHeight = true;
+    clearTimeout(animationTimer);
+    animationTimer = setTimeout(() => (animateHeight = false), 250);
+  }
+
+  $effect(() => {
+    void open;
+    animateNextHeight();
+  });
+
   function endDrag() {
     if (!drag) return;
+    animateNextHeight();
     open = drag.moved ? (dragHeight ?? 0) > openHeight / 2 : !open;
     drag = null;
     dragHeight = null;
@@ -107,9 +129,9 @@
       class={[
         'flex min-h-0 flex-col gap-3 md:flex-1',
         'max-md:overflow-hidden',
-        dragHeight === null && 'max-md:transition-[height] max-md:duration-200 max-md:ease-out',
+        dragHeight === null && animateHeight && 'max-md:transition-[height] max-md:duration-200 max-md:ease-out',
       ]}
-      style:height={isDesktop.current ? undefined : `${height}px`}
+      style:height={isDesktop.current ? undefined : heightStyle}
     >
       <div
         bind:this={body}

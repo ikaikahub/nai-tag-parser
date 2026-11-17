@@ -8,6 +8,7 @@
   import { fade, slide } from 'svelte/transition';
   import { ANIMATION_MS } from '$lib/theme';
   import GenerationView from '$lib/components/GenerationView.svelte';
+  import ImageGallery from '$lib/components/ImageGallery.svelte';
   import CollapseTab from '$lib/components/CollapseTab.svelte';
   import { addNewestHistory, history, historySelection, loadMoreHistory } from '$lib/state/history.svelte';
   import { onMount, tick } from 'svelte';
@@ -103,6 +104,18 @@
     if (feed && target) scrollFeedTo(target.getBoundingClientRect().top - feed.getBoundingClientRect().top + feed.scrollTop);
   }
 
+  const galleryImages = $derived(
+    history.items.flatMap((entry) => entry.images.map((image) => ({ ...image, width: entry.width, height: entry.height }))),
+  );
+
+  function setViewedImage(id: number | null) {
+    const viewedId = historySelection.enlargedImageId;
+    historySelection.enlargedImageId = id;
+    // closing the gallery leaves the feed on the generation that was looked at last
+    const viewedEntry = id === null && history.items.find((entry) => entry.images.some((image) => image.id === viewedId));
+    if (viewedEntry) scrollToEntry(viewedEntry.id);
+  }
+
   function stepHistory(direction: 1 | -1) {
     const index = history.items.findIndex((entry) => entry.id === historySelection.entryId) + direction;
     const next = history.items[index];
@@ -147,7 +160,8 @@
     base64.startsWith('/9j/') ? 'image/jpeg' : base64.startsWith('iVBOR') ? 'image/png' : 'image/webp';
 
   function onkeydown(e: KeyboardEvent) {
-    if (page.route.id !== '/') return;
+    // the gallery handles its own keys
+    if (page.route.id !== '/' || historySelection.enlargedImageId !== null) return;
     const target = e.target as HTMLElement;
     const isField = target instanceof HTMLTextAreaElement || target instanceof HTMLInputElement;
     if (e.isComposing || target.closest('dialog, [popover]') || document.querySelector('dialog[open]')) return;
@@ -159,8 +173,6 @@
     } else if ((e.key === 'ArrowDown' || e.key === 'ArrowUp') && !isField) {
       e.preventDefault();
       stepHistory(e.key === 'ArrowDown' ? 1 : -1);
-    } else if (e.key === 'Escape') {
-      historySelection.enlargedImageId = null;
     }
   }
 </script>
@@ -279,4 +291,12 @@
 </div>
 
 <PromptPreview bind:open={previewOpen} />
+
+{#if historySelection.enlargedImageId !== null}
+  <ImageGallery
+    images={galleryImages}
+    bind:currentId={() => historySelection.enlargedImageId, setViewedImage}
+    onnearend={loadMoreHistory}
+  />
+{/if}
 
