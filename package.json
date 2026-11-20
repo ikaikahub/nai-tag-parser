@@ -1,6 +1,6 @@
 {
   "name": "bocchi-tagger",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "Bocchi Tagger - a NovelAI image generation client",
   "type": "module",
   "packageManager": "pnpm@12.16.1",
