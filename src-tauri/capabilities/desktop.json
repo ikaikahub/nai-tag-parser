@@ -1,0 +1,8 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "desktop",
+  "description": "In-app updates, which only exist on desktop",
+  "windows": ["main"],
+  "platforms": ["windows", "linux", "macOS"],
+  "permissions": ["updater:default", "process:allow-restart"]
+}

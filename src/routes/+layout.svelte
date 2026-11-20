@@ -4,6 +4,7 @@
   import Modal from '$lib/components/Modal.svelte';
   import PromptText from '$lib/components/PromptText.svelte';
   import ToggleButton from '$lib/components/ToggleButton.svelte';
+  import UpdateNotice from '$lib/components/UpdateNotice.svelte';
   import { exportBackup, importBackup } from '$lib/backup.svelte';
   import { account, refreshAccount } from '$lib/state/account.svelte';
   import { settings } from '$lib/state/settings.svelte';
@@ -182,3 +183,5 @@ more base tags
     </div>
   </div>
 </Modal>
+
+<UpdateNotice />

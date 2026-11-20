@@ -37,6 +37,10 @@
     ]
   },
   "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEEwMTU0RjgwNzBBOTA0Q0IKUldUTEJLbHdnRThWb09mQWVuTUpsRWtlaW5ONHNNQ2FaZ05NVDhBdTlKemFkY1lXeDluZ2I4L3kK",
+      "endpoints": ["https://github.com/ikaikahub/nai-tag-parser/releases/latest/download/latest.json"]
+    },
     "sql": {
       "preload": ["sqlite:mydatabase.db"]
     }
