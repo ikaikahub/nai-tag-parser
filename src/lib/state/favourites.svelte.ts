@@ -8,7 +8,7 @@ export type FavouritePrompt = { text: string; backend: 'novelai'; settings: Nove
 
 export type RestoreMode = 'text' | 'settings' | 'seed';
 
-export const favourites = persisted('favourites', {
+export const favourites = await persisted('favourites.json', {
   chunks: [] as string[],
   prompts: [] as FavouritePrompt[],
 });

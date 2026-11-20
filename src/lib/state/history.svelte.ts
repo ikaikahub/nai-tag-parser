@@ -1,91 +1,127 @@
-import type { GenerateRequest } from '$lib/napi';
+import { listGenerations, type GenerationImage, type GenerationRow } from '$lib/db/generations';
+import { deleteImageRows, listImages, selectedImages, type ImageFilter, type ImageRow, type ImageSelection } from '$lib/db/images';
+import { BaseDirectory, exists, remove } from '@tauri-apps/plugin-fs';
+import { imageUrl } from '$lib/images';
+import type { Resolution } from '$lib/presets';
+import { parseTags } from '$lib/tags';
 
 const PAGE_SIZE = 30;
-const STORE = 'generations';
 
-export type StoredGeneration = {
-  id?: number;
-  createdAt: number;
-  width: number;
-  height: number;
-  promptText: string;
-  request: GenerateRequest;
-  images: { blob: Blob; seed: number }[];
-};
+export type GalleryItem = ImageRow & { src: string };
+export type HistoryImage = GenerationImage & { src: string; fileName: string };
+export type HistoryEntry = Omit<GenerationRow, 'images'> & { images: HistoryImage[] };
 
-export type HistoryImage = { id: number; src: string; seed: number; fileName: string };
-export type HistoryEntry = { id: number; width: number; height: number; images: HistoryImage[] };
+const withSrc = async <T extends { relative_path: string }>(image: T) => ({ ...image, src: await imageUrl(image.relative_path) });
 
-const database = new Promise<IDBDatabase>((resolve, reject) => {
-  const request = indexedDB.open('nai-ats', 1);
-  request.onupgradeneeded = () => request.result.createObjectStore(STORE, { keyPath: 'id', autoIncrement: true });
-  request.onsuccess = () => resolve(request.result);
-  request.onerror = () => reject(request.error);
-});
+const fileName = (path: string) => path.split('/').pop() ?? path;
 
-// image ids only need to be unique across the feed, so they are derived from the generation id
-const toEntry = (generation: StoredGeneration & { id: number }): HistoryEntry => ({
-  id: generation.id,
-  width: generation.width,
-  height: generation.height,
-  images: generation.images.map((image, index) => ({
-    id: generation.id * 100 + index,
-    src: URL.createObjectURL(image.blob),
-    seed: image.seed,
-    fileName: `nai-${generation.createdAt}-${index + 1}.${image.blob.type.split('/')[1].replace('jpeg', 'jpg')}`,
-  })),
-});
+function pagedFeed<T>(fetchPage: (offset: number, limit: number) => Promise<T[]>) {
+    const feed = $state({ items: [] as T[], loading: false, done: false });
 
-// newest first
-async function readGenerations(offset: number, limit: number) {
-  const store = (await database).transaction(STORE).objectStore(STORE);
-  return new Promise<HistoryEntry[]>((resolve, reject) => {
-    const entries: HistoryEntry[] = [];
-    let skipped = false;
-    const cursorRequest = store.openCursor(null, 'prev');
-    cursorRequest.onerror = () => reject(cursorRequest.error);
-    cursorRequest.onsuccess = () => {
-      const cursor = cursorRequest.result;
-      if (cursor && offset && !skipped) {
-        skipped = true;
-        cursor.advance(offset);
-        return;
-      }
-      if (!cursor || entries.length >= limit) return resolve(entries);
-      entries.push(toEntry(cursor.value));
-      cursor.continue();
-    };
-  });
+    let version = 0;
+
+    async function loadMore() {
+        if (feed.loading || feed.done) return;
+        const loadingVersion = version;
+        feed.loading = true;
+        try {
+            const items = await fetchPage(feed.items.length, PAGE_SIZE);
+            if (loadingVersion !== version) return;
+            feed.items.push(...items);
+            feed.done = items.length < PAGE_SIZE;
+        } finally {
+            if (loadingVersion === version) feed.loading = false;
+        }
+    }
+
+    async function replaceItems(limit: number) {
+        const reloadVersion = ++version;
+        feed.loading = true;
+        try {
+            const items = await fetchPage(0, limit);
+            if (reloadVersion !== version) return;
+            feed.items = items;
+            feed.done = items.length < limit;
+        } finally {
+            if (reloadVersion === version) feed.loading = false;
+        }
+    }
+
+    const reload = () => replaceItems(PAGE_SIZE);
+    const refresh = () => replaceItems(Math.max(feed.items.length, PAGE_SIZE));
+
+    return { feed, loadMore, reload, refresh };
 }
 
-export async function saveGeneration(generation: StoredGeneration) {
-  const store = (await database).transaction(STORE, 'readwrite').objectStore(STORE);
-  await new Promise((resolve, reject) => {
-    const request = store.add(generation);
-    request.onsuccess = resolve;
-    request.onerror = () => reject(request.error);
-  });
+async function fetchHistory(offset: number, limit: number): Promise<HistoryEntry[]> {
+    const rows = await listGenerations(offset, limit);
+    return Promise.all(
+        rows.map(async (row) => ({
+            ...row,
+            images: await Promise.all(
+                row.images.map(async (image) => ({
+                    ...image,
+                    src: await imageUrl(image.relative_path),
+                    fileName: fileName(image.relative_path),
+                })),
+            ),
+        })),
+    );
 }
 
-export const history = $state({ items: [] as HistoryEntry[], loading: false, done: false });
+const historyFeed = pagedFeed(fetchHistory);
+export const history = historyFeed.feed;
+export const loadMoreHistory = historyFeed.loadMore;
 
 export const historySelection = $state({
-  entryId: null as number | null,
+    entryId: null as number | null,
+    enlargedImageId: null as number | null,
 });
 
-export async function loadMoreHistory() {
-  if (history.loading || history.done) return;
-  history.loading = true;
-  try {
-    const items = await readGenerations(history.items.length, PAGE_SIZE);
-    history.items.push(...items);
-    history.done = items.length < PAGE_SIZE;
-  } finally {
-    history.loading = false;
-  }
+export async function reloadHistory() {
+    historySelection.entryId = null;
+    historySelection.enlargedImageId = null;
+    await historyFeed.reload();
+    historySelection.entryId = history.items[0]?.id ?? null;
 }
 
 export async function addNewestHistory() {
-  const [entry] = await readGenerations(0, 1);
-  if (entry && entry.id !== history.items[0]?.id) history.items.unshift(entry);
+    const [entry] = await fetchHistory(0, 1);
+    if (entry && entry.id !== history.items[0]?.id) history.items.unshift(entry);
+}
+
+const defaultGalleryFilter = () => ({
+    favourites: false,
+    include: '',
+    exclude: '',
+    size: null as Resolution | null,
+});
+
+export const galleryFilter = $state(defaultGalleryFilter());
+
+export const resetGalleryFilter = () => Object.assign(galleryFilter, defaultGalleryFilter());
+
+export function galleryQuery(): ImageFilter {
+    return {
+        favourites: galleryFilter.favourites,
+        include: parseTags(galleryFilter.include),
+        exclude: parseTags(galleryFilter.exclude),
+        size: galleryFilter.size,
+    };
+}
+
+export const gallery = pagedFeed(async (offset, limit) =>
+    Promise.all((await listImages(galleryQuery(), offset, limit)).map(withSrc)),
+);
+
+export async function deleteImages(selection: ImageSelection) {
+    const images = await selectedImages(selection, galleryQuery());
+    await deleteImageRows(images.map((image) => image.id));
+    for (const { relative_path } of images) {
+        if (await exists(relative_path, { baseDir: BaseDirectory.AppData })) {
+            await remove(relative_path, { baseDir: BaseDirectory.AppData });
+        }
+    }
+    await Promise.all([gallery.reload(), reloadHistory()]);
+    return images.length;
 }

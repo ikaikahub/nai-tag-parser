@@ -2,8 +2,9 @@
   import ZoomableImage from './ZoomableImage.svelte';
   import type { Resolution } from '$lib/presets';
   import { settings } from '$lib/state/settings.svelte';
+  import { saveImage } from '$lib/images';
 
-  type Image = { id: number; src: string | null; fileName?: string };
+  type Image = { id: number; src: string | null; fileName?: string; relative_path?: string };
   type Box = { left: number; top: number; width: number; height: number };
 
   let { images, size, pending = false }: { images: Image[]; size: Resolution; pending?: boolean } = $props();
@@ -103,17 +104,16 @@
             onzoomstart={() => images.length > 1 && (focusedId = image.id)}
           />
         </div>
-        <a
+        <button
           class={[
             'absolute right-2 bottom-2 z-10 text-lg leading-none transition-opacity',
             showsOne ? 'opacity-80' : 'opacity-0 group-hover:opacity-80 focus-visible:opacity-80',
           ]}
-          href={image.src}
-          download={image.fileName}
           title="Download"
+          onclick={() => image.relative_path && image.fileName && saveImage(image.relative_path, image.fileName)}
         >
           💾
-        </a>
+        </button>
       {/if}
     </div>
   {/each}

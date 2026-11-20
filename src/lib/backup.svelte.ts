@@ -1,8 +1,10 @@
+import { open, save } from '@tauri-apps/plugin-dialog';
+import { readTextFile, writeTextFile } from '@tauri-apps/plugin-fs';
 import { favourites, type FavouritePrompt } from '$lib/state/favourites.svelte';
 import { generationSettings, prompt } from '$lib/state/generate.svelte';
 import { settings } from '$lib/state/settings.svelte';
 
-// the Tauri app exports this same shape from Settings → Backup → Export for web
+// the web app exports the same shape from its settings dialog
 export type WebBackup = {
   format: 'nai-ats-web';
   version: 1;
@@ -12,7 +14,7 @@ export type WebBackup = {
   apiKey: string | null;
 };
 
-export function exportBackup() {
+export async function exportBackup() {
   const backup: WebBackup = {
     format: 'nai-ats-web',
     version: 1,
@@ -21,19 +23,22 @@ export function exportBackup() {
     generationSettings: $state.snapshot(generationSettings),
     apiKey: settings.apiKey,
   };
-  const link = document.createElement('a');
-  link.href = URL.createObjectURL(new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' }));
-  link.download = `nai-ats-backup-${new Date().toISOString().slice(0, 10)}.json`;
-  // Firefox drops downloads from detached links or URLs revoked straight away, and the page behind an open dialog is inert
-  (document.querySelector('dialog[open]') ?? document.body).append(link);
-  link.click();
-  link.remove();
-  setTimeout(() => URL.revokeObjectURL(link.href), 60_000);
+
+  const path = await save({
+    defaultPath: `nai-ats-backup-${new Date().toISOString().slice(0, 10)}.json`,
+    filters: [{ name: 'JSON', extensions: ['json'] }],
+  });
+  if (!path) return false;
+  await writeTextFile(path, JSON.stringify(backup, null, 2));
+  return true;
 }
 
 // favourites are merged without duplicates, everything else is replaced
-export async function importBackup(file: File) {
-  const backup: WebBackup = JSON.parse(await file.text());
+export async function importBackup() {
+  const path = await open({ multiple: false, filters: [{ name: 'JSON', extensions: ['json'] }] });
+  if (typeof path !== 'string') return null;
+
+  const backup: WebBackup = JSON.parse(await readTextFile(path));
   if (backup.format !== 'nai-ats-web') throw new Error('Not a NAI ATS backup file');
 
   for (const chunk of backup.favourites.chunks) {

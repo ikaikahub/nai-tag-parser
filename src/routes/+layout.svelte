@@ -53,7 +53,6 @@ more base tags
     refreshAccount();
   }
   let backupMessage = $state('');
-  let importInput = $state<HTMLInputElement>();
 
   onMount(refreshAccount);
 
@@ -65,47 +64,26 @@ more base tags
     setTimeout(() => splash.remove(), 300);
   });
 
-  // a new version replaces the old service worker right away, so reload once onto its files.
-  // the very first install also takes control of an uncontrolled page, which is not an update and needs no reload
-  onMount(() => {
-    if (!('serviceWorker' in navigator)) return;
-    let controlled = !!navigator.serviceWorker.controller;
-    let reloading = false;
-    navigator.serviceWorker.addEventListener('controllerchange', () => {
-      if (!controlled) {
-        controlled = true;
-        return;
-      }
-      if (reloading) return;
-      reloading = true;
-      location.reload();
-    });
-  });
-
-  // an installed app can stay open for days, so look for a new version whenever it comes back into view
-  function checkForUpdate() {
-    if (document.visibilityState !== 'visible' || !('serviceWorker' in navigator)) return;
-    navigator.serviceWorker.getRegistration().then((registration) => registration?.update().catch(() => {}));
+  async function importFile() {
+    backupMessage = '📂 Choose a backup file…';
+    try {
+      const imported = await importBackup();
+      backupMessage = imported ? `✅ Imported ${imported.chunks} saved chunks and ${imported.prompts} favourites` : '';
+      if (imported) refreshAccount();
+    } catch (error) {
+      backupMessage = `⚠️ ${error instanceof Error ? error.message : String(error)}`;
+    }
   }
 
-  // also runs when the page regains focus, since Firefox on Android may hand over the file without any event
-  async function importFile() {
-    const file = importInput?.files?.[0];
-    if (!importInput || !file) return;
-    importInput.value = '';
-    backupMessage = `📂 Reading ${file.name}…`;
+  async function exportFile() {
+    backupMessage = '';
     try {
-      const imported = await importBackup(file);
-      backupMessage = `✅ Imported ${imported.chunks} saved chunks and ${imported.prompts} favourites`;
-      refreshAccount();
+      if (await exportBackup()) backupMessage = '✅ Backup saved';
     } catch (error) {
       backupMessage = `⚠️ ${error instanceof Error ? error.message : String(error)}`;
     }
   }
 </script>
-
-<svelte:window onfocus={() => setTimeout(importFile, 300)} />
-<svelte:document onvisibilitychange={checkForUpdate} />
 
 <div class="flex h-dvh flex-col">
   <header class="flex h-10 shrink-0 items-center gap-4 border-b border-base-300 bg-base-200 px-3 md:h-12">
@@ -139,7 +117,7 @@ more base tags
 <Modal bind:open={keyPromptOpen} title="🔑 Add your NovelAI API key">
   <form class="flex flex-col gap-3" onsubmit={saveKey}>
     <p class="text-sm opacity-80">
-      A NovelAI API key is required to use Bocchi Tagger. The key is stored locally and Bocchi Tagger works completely on your browser.
+      A NovelAI API key is required to use Bocchi Tagger. The key is stored locally on this device.
     </p>
     <input class="input w-full font-mono" name="apiKey" autocomplete="off" placeholder="pst-..." bind:value={keyInput} />
     <p class="text-xs opacity-60">NovelAI → Account Settings → Get Persistent API Token</p>
@@ -197,20 +175,8 @@ more base tags
       <span class="text-sm">💾 Backup</span>
       <span class="text-xs opacity-60">Saved chunks, favourites, prompt, settings and API key</span>
       <div class="flex gap-2">
-        <button class="btn btn-sm flex-1" onclick={exportBackup}>Export</button>
-        <!-- a label instead of input.click() because Firefox on Android can skip change events for hidden inputs -->
-        <label class="btn btn-sm flex-1">
-          Import
-          <input
-            bind:this={importInput}
-            type="file"
-            class="sr-only"
-            onclick={() => (backupMessage = '📂 Choose a backup file')}
-            onchange={importFile}
-            oninput={importFile}
-            oncancel={() => (backupMessage = 'No file picked')}
-          />
-        </label>
+        <button class="btn btn-sm flex-1" onclick={exportFile}>Export</button>
+        <button class="btn btn-sm flex-1" onclick={importFile}>Import</button>
       </div>
       {#if backupMessage}<span class="text-xs">{backupMessage}</span>{/if}
     </div>

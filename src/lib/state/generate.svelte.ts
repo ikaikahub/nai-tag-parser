@@ -1,6 +1,6 @@
 import { persisted } from './persisted.svelte';
 
-export const generationSettings = persisted('generation', {
+export const generationSettings = await persisted('generation.json', {
     model: 'nai-diffusion-5-full',
     effort: 'high' as 'high' | 'medium',
     mode: 'anime' as 'anime' | 'furry',
@@ -17,4 +17,4 @@ export const generationSettings = persisted('generation', {
     },
 });
 
-export const prompt = persisted('prompt', { text: '' });
+export const prompt = await persisted('prompt.json', { text: '' });

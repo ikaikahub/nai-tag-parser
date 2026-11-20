@@ -1,0 +1,73 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "tag-parser",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": [
+        "--dir",
+        "../nai-tag-parser",
+        "dev",
+        "--port",
+        "5182",
+        "--strictPort"
+      ],
+      "port": 5182
+    },
+    {
+      "name": "tag-parser-lan",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": [
+        "--dir",
+        "../nai-tag-parser",
+        "dev",
+        "--host",
+        "--port",
+        "5183",
+        "--strictPort"
+      ],
+      "port": 5183
+    },
+    {
+      "name": "tag-parser-preview",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": [
+        "--dir",
+        "../nai-tag-parser",
+        "preview",
+        "--port",
+        "5185",
+        "--strictPort"
+      ],
+      "port": 5185
+    },
+    {
+      "name": "tag-parser-static",
+      "runtimeExecutable": "python",
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "5186",
+        "--bind",
+        "127.0.0.1",
+        "--directory",
+        "../nai-tag-parser/build"
+      ],
+      "port": 5186
+    },
+    {
+      "name": "foryooru-web",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": [
+        "--dir",
+        "../foryooru-web",
+        "dev",
+        "--host",
+        "--port",
+        "5190",
+        "--strictPort"
+      ],
+      "port": 5190
+    }
+  ]
+}

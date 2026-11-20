@@ -1,0 +1,45 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Capability for the main window",
+  "windows": [
+    "main"
+  ],
+  "permissions": [
+    "core:default",
+    "opener:default",
+    "sql:default",
+    "sql:allow-execute",
+    "core:window:default",
+    "core:window:allow-close",
+    "core:window:allow-minimize",
+    "core:window:allow-toggle-maximize",
+    "core:window:allow-start-dragging",
+    {
+      "identifier": "http:default",
+      "allow": [
+        {
+          "url": "https://api.novelai.net/*"
+        },
+        {
+          "url": "http://*:*"
+        },
+        {
+          "url": "https://image.novelai.net/*"
+        }
+      ]
+    },
+    "store:default",
+    "fs:default",
+    "fs:read-files",
+    "fs:allow-copy-file",
+    "fs:allow-appdata-write-recursive",
+    "fs:allow-write-file",
+    "fs:allow-write-text-file",
+    "dialog:allow-save",
+    "dialog:allow-open",
+    "fs:allow-appdata-read-recursive",
+    "fs:allow-applocaldata-read-recursive",
+    "core:webview:allow-clear-all-browsing-data"
+  ]
+}

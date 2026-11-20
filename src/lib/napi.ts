@@ -1,3 +1,5 @@
+import { fetch } from '@tauri-apps/plugin-http';
+
 const BASE_URL = "https://image.novelai.net"
 
 export type usageRemaining = {
