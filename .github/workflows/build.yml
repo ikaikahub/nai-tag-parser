@@ -167,6 +167,10 @@ jobs:
           path: dist
           merge-multiple: true
 
+      - name: Set release title
+        id: release_title
+        run: echo "title=${RELEASE_TAG} - $(date -u +%F)" >> "$GITHUB_OUTPUT"
+
       # desktop artifacts keep their nsis/, appimage/, deb/ and rpm/ folders, but the release only takes dist/*
       - name: Flatten downloads
         run: find dist -mindepth 2 -type f -exec mv -t dist {} +
@@ -209,6 +213,6 @@ jobs:
       - uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ env.RELEASE_TAG }}
-          name: ${{ env.RELEASE_TAG }}
+          name: ${{ steps.release_title.outputs.title }}
           target_commitish: ${{ github.sha }}
           files: dist/*
