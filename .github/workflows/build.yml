@@ -25,12 +25,14 @@ on:
 permissions:
   contents: write
 
-# a newer run on the same branch or tag stops the older one
+# a newer run for the same release, or the same branch without one, stops the older one.
+# releases all run on the branch now, so grouping by branch alone would cancel one release with the next
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ inputs.release_tag || github.ref }}
   cancel-in-progress: true
 
-# tag pushes build everything and release under that tag, manual runs use the inputs
+# pnpm release starts manual runs on the branch so they share the build cache. a pushed tag still builds
+# everything and releases under that tag
 env:
   RELEASE_TAG: ${{ github.event_name == 'push' && github.ref_name || inputs.release_tag }}
 
