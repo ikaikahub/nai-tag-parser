@@ -93,7 +93,9 @@ jobs:
             src-tauri/target/release/bundle/appimage/*.AppImage
             src-tauri/target/release/bundle/appimage/*.AppImage.sig
             src-tauri/target/release/bundle/deb/*.deb
+            src-tauri/target/release/bundle/deb/*.deb.sig
             src-tauri/target/release/bundle/rpm/*.rpm
+            src-tauri/target/release/bundle/rpm/*.rpm.sig
 
   android:
     if: github.event_name == 'push' || inputs.android
@@ -165,6 +167,10 @@ jobs:
           path: dist
           merge-multiple: true
 
+      # desktop artifacts keep their nsis/, appimage/, deb/ and rpm/ folders, but the release only takes dist/*
+      - name: Flatten downloads
+        run: find dist -mindepth 2 -type f -exec mv -t dist {} +
+
       # the in-app updater reads this from the latest release
       - name: Write update manifest
         run: |
@@ -176,7 +182,14 @@ jobs:
               raise SystemExit(0)
           base = f"https://github.com/{os.environ['GITHUB_REPOSITORY']}/releases/download/{tag}/"
           platforms = {}
-          for target, pattern in [('windows-x86_64', '*-setup.exe'), ('linux-x86_64', '*.AppImage')]:
+          # each linux format needs its own entry, the updater looks for os-arch-format before os-arch
+          formats = [
+              ('windows-x86_64', '*-setup.exe'),
+              ('linux-x86_64-appimage', '*.AppImage'),
+              ('linux-x86_64-deb', '*.deb'),
+              ('linux-x86_64-rpm', '*.rpm'),
+          ]
+          for target, pattern in formats:
               for installer in pathlib.Path('dist').glob(pattern):
                   signature = pathlib.Path(f'{installer}.sig')
                   if signature.exists():
