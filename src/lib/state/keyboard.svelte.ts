@@ -3,6 +3,8 @@
 export const keyboard = $state({ screenHeight: 0, height: 0, inset: 0 });
 
 let screenWidth = 0;
+// the Android WebView keeps its size under the keyboard, so MainActivity.kt reports the keyboard height instead
+let androidKeyboardHeight = 0;
 
 function measureKeyboard() {
   const viewport = window.visualViewport;
@@ -14,8 +16,8 @@ function measureKeyboard() {
 
   // pinch zoom also shrinks the visual viewport, that isn't a keyboard
   const visibleBottom = !viewport || viewport.scale > 1.01 ? layoutHeight : viewport.height + viewport.offsetTop;
-  keyboard.height = Math.max(0, Math.round(keyboard.screenHeight - visibleBottom));
-  keyboard.inset = Math.max(0, Math.round(layoutHeight - visibleBottom));
+  keyboard.height = Math.max(androidKeyboardHeight, Math.round(keyboard.screenHeight - visibleBottom));
+  keyboard.inset = Math.max(androidKeyboardHeight, Math.round(layoutHeight - visibleBottom));
   document.documentElement.style.setProperty('--keyboard-inset', `${keyboard.inset}px`);
 }
 
@@ -23,3 +25,7 @@ measureKeyboard();
 window.addEventListener('resize', measureKeyboard);
 window.visualViewport?.addEventListener('resize', measureKeyboard);
 window.visualViewport?.addEventListener('scroll', measureKeyboard);
+window.addEventListener('keyboardinset', (event) => {
+  androidKeyboardHeight = Math.round((event as CustomEvent<number>).detail);
+  measureKeyboard();
+});

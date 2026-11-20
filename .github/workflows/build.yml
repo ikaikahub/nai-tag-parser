@@ -1,5 +1,6 @@
 name: Build
 
+run-name: ${{ inputs.release_tag || github.ref_name }}
 on:
   push:
     tags: ['v*']
